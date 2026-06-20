@@ -1,0 +1,5 @@
+python-chess<2,>=1.999
+requests<3,>=2.31
+
+[dev]
+pytest<9,>=8

@@ -1,0 +1,110 @@
+{
+  "username": "MarveIous",
+  "games": 509,
+  "decisions": 14740,
+  "rating": {
+    "minimum": 586,
+    "maximum": 1638,
+    "average": 1511.4
+  },
+  "move_tendencies": {
+    "capture_rate_percent": 24.75,
+    "check_rate_percent": 10.52,
+    "castles": 290,
+    "kingside_castles": 160,
+    "queenside_castles": 129
+  },
+  "colors": {
+    "black": 7497,
+    "white": 7243
+  },
+  "splits": {
+    "test": 2412,
+    "validation": 2426,
+    "train": 9902
+  },
+  "top_time_controls": [
+    [
+      "600",
+      13140
+    ],
+    [
+      "300",
+      1304
+    ],
+    [
+      "1800",
+      171
+    ],
+    [
+      "1200",
+      71
+    ],
+    [
+      "60+1",
+      54
+    ]
+  ],
+  "top_eco_codes": [
+    [
+      "C42",
+      1886
+    ],
+    [
+      "C50",
+      1848
+    ],
+    [
+      "A40",
+      1169
+    ],
+    [
+      "B01",
+      699
+    ],
+    [
+      "C20",
+      675
+    ],
+    [
+      "C41",
+      633
+    ],
+    [
+      "C51",
+      616
+    ],
+    [
+      "C57",
+      437
+    ],
+    [
+      "C24",
+      375
+    ],
+    [
+      "B00",
+      362
+    ],
+    [
+      "A00",
+      358
+    ],
+    [
+      "B30",
+      333
+    ],
+    [
+      "C58",
+      331
+    ],
+    [
+      "C00",
+      319
+    ],
+    [
+      "B13",
+      314
+    ]
+  ]
+}

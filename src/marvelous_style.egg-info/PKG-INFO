@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: marvelous-style
+Version: 0.1.0
+Summary: Chess.com data pipeline and personalization baseline for the MarveIous engine
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: python-chess<2,>=1.999
+Requires-Dist: requests<3,>=2.31
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"
+Dynamic: license-file

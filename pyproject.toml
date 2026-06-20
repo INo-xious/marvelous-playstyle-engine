@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marvelous-style"
+version = "0.1.0"
+description = "Chess.com data pipeline and personalization baseline for the MarveIous engine"
+requires-python = ">=3.11"
+dependencies = [
+    "python-chess>=1.999,<2",
+    "requests>=2.31,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+marvelous-style = "marvelous_style.cli:main"
+marvelous-gui = "marvelous_style.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081020" />
+    <title>MarveIous | Play your engine</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="MarveIous home">Marve<span>I</span>ous</a>
+      <p class="offline-note">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3m8-6 4 3-4 3M14 5l-4 14" /></svg>
+        Offline analysis only
+      </p>
+    </header>
+
+    <main class="game-layout">
+      <section class="board-region" aria-label="Chess board">
+        <div class="board-shell">
+          <div id="board" class="board" role="grid" aria-label="Chessboard"></div>
+          <div id="thinking" class="thinking" aria-live="polite" hidden>
+            <span class="thinking-mark" aria-hidden="true"></span>
+            MarveIous is thinking
+          </div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span><i class="key selected-key"></i>Selected</span>
+          <span><i class="key legal-key"></i>Legal move</span>
+          <span><i class="key last-key"></i>Last move</span>
+        </div>
+      </section>
+
+      <aside class="control-rail">
+        <div class="intro">
+          <h1>Play your engine</h1>
+          <p>Your moves, reflected back.</p>
+        </div>
+
+        <div class="match-status">
+          <strong>You vs Marve<span>I</span>ous Engine</strong>
+          <p id="status"><i></i>Your turn</p>
+        </div>
+
+        <label class="depth-control" for="depth">
+          <span>Depth</span>
+          <select id="depth">
+            <option value="2">Depth 2</option>
+            <option value="3">Depth 3</option>
+            <option value="4" selected>Depth 4</option>
+            <option value="5">Depth 5</option>
+            <option value="6">Depth 6</option>
+          </select>
+        </label>
+
+        <section class="moves-section" aria-labelledby="moves-heading">
+          <h2 id="moves-heading">Moves</h2>
+          <div id="moves" class="move-list">
+            <p class="empty-moves">Your game will appear here.</p>
+          </div>
+        </section>
+
+        <div class="engine-response">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-5 2.2A3 3 0 0 0 3 12a3 3 0 0 0 1 5.8A3 3 0 0 0 9 20m6-16a3 3 0 0 1 5 2.2A3 3 0 0 1 21 12a3 3 0 0 1-1 5.8A3 3 0 0 1 15 20M9 4v16m6-16v16M7 9h2m6 0h2M7 15h2m6 0h2M9 12h6" /></svg>
+          <div>
+            <span>Engine response</span>
+            <strong id="engine-note">Ready for your first move</strong>
+          </div>
+        </div>
+
+        <p id="error" class="error" role="alert" hidden></p>
+        <button id="new-game" class="new-game" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+          New game
+        </button>
+      </aside>
+    </main>
+
+    <footer>
+      Click a piece, then a highlighted square. Keyboard users can Tab to any square and press Enter.
+    </footer>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

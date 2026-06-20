@@ -1,0 +1,18 @@
+{
+  "validation": {
+    "decisions": 2426,
+    "covered_decisions": 286,
+    "coverage_percent": 11.79,
+    "top1_accuracy_percent": 89.16,
+    "top3_accuracy_percent": 95.45,
+    "overall_top1_percent": 10.51
+  },
+  "test": {
+    "decisions": 2412,
+    "covered_decisions": 295,
+    "coverage_percent": 12.23,
+    "top1_accuracy_percent": 88.81,
+    "top3_accuracy_percent": 95.93,
+    "overall_top1_percent": 10.86
+  }
+}
