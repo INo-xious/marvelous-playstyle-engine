@@ -248,7 +248,13 @@ button, select { font: inherit; }
 .match-status p { display: flex; gap: 9px; align-items: center; margin: 8px 0 0; color: var(--green); font-size: 14px; font-weight: 750; }
 .match-status p i { width: 9px; aspect-ratio: 1; border-radius: 50%; background: currentColor; }
 
-.depth-control { display: grid; grid-template-columns: 70px 1fr; gap: 14px; align-items: center; margin-bottom: 20px; color: var(--muted); font-size: 14px; }
+.side-control, .depth-control { display: grid; grid-template-columns: 70px 1fr; gap: 14px; align-items: center; color: var(--muted); font-size: 14px; }
+.side-control { margin-bottom: 12px; }
+.side-options { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: #091326; }
+.side-options button { padding: 8px 10px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 13px; font-weight: 750; cursor: pointer; }
+.side-options button.active { color: #fff; background: var(--violet); }
+.side-options button:disabled { cursor: wait; opacity: .65; }
+.depth-control { margin-bottom: 20px; }
 .depth-control select { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface-raised); font-size: 14px; }
 
 .moves-section h2 { margin: 0 0 9px; font-size: 20px; }
@@ -311,7 +317,7 @@ button, select { font: inherit; }
 }
 
 .new-game:hover { transform: translateY(-1px); background: #ff7474; }
-.new-game:focus-visible, select:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+.new-game:focus-visible, .side-options button:focus-visible, select:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
 
 footer { padding: 20px 24px 28px; color: #8f8aa7; text-align: center; font-size: 12px; }
 
@@ -321,6 +327,8 @@ footer { padding: 20px 24px 28px; color: #8f8aa7; text-align: center; font-size:
   .intro h1 { font-size: 36px; }
   .intro p { font-size: 15px; }
   .match-status { margin: 12px 0; padding: 14px; }
+  .side-control { margin-bottom: 8px; }
+  .side-options button { padding: 6px 8px; }
   .depth-control { margin-bottom: 13px; }
   .move-list { min-height: 108px; max-height: 128px; }
   .empty-moves { margin-top: 34px; }
