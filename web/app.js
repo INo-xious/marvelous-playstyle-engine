@@ -15,6 +15,8 @@ const thinkingElement = document.querySelector("#thinking");
 const errorElement = document.querySelector("#error");
 const depthElement = document.querySelector("#depth");
 const newGameElement = document.querySelector("#new-game");
+const matchLabelElement = document.querySelector("#match-label");
+const sideElements = [...document.querySelectorAll("[data-side]")];
 
 let game = null;
 let selected = null;
@@ -45,11 +47,13 @@ function renderBoard() {
   const position = parseFen(game.fen);
   const legal = selected ? legalDestinations(selected) : [];
   const lastSquares = game.lastMove ? [game.lastMove.slice(0, 2), game.lastMove.slice(2, 4)] : [];
+  const ranks = game.playerColor === "black" ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
+  const files = game.playerColor === "black" ? "hgfedcba" : "abcdefgh";
   boardElement.replaceChildren();
 
-  for (let rank = 8; rank >= 1; rank -= 1) {
-    for (let fileIndex = 0; fileIndex < 8; fileIndex += 1) {
-      const file = "abcdefgh"[fileIndex];
+  ranks.forEach((rank, rankIndex) => {
+    [...files].forEach((file, displayFileIndex) => {
+      const fileIndex = "abcdefgh".indexOf(file);
       const square = `${file}${rank}`;
       const piece = position[square];
       const button = document.createElement("button");
@@ -71,12 +75,12 @@ function renderBoard() {
         element.textContent = pieces[piece][0];
         button.append(element);
       }
-      if (fileIndex === 0) button.append(coordinate(rank, "rank"));
-      if (rank === 1) button.append(coordinate(file, "file"));
+      if (displayFileIndex === 0) button.append(coordinate(rank, "rank"));
+      if (rankIndex === 7) button.append(coordinate(file, "file"));
       button.addEventListener("click", () => selectSquare(square, piece));
       boardElement.append(button);
-    }
-  }
+    });
+  });
 }
 
 function coordinate(value, type) {
@@ -105,9 +109,16 @@ function render() {
   renderBoard();
   renderHistory();
   statusElement.innerHTML = `<i></i>${game.status}`;
+  matchLabelElement.innerHTML = `You (${game.playerColor === "white" ? "White" : "Black"}) vs Marve<span>I</span>ous Engine`;
   engineNoteElement.textContent = game.engineNote;
   thinkingElement.hidden = !busy;
   boardElement.setAttribute("aria-busy", String(busy));
+  sideElements.forEach((button) => {
+    const active = button.dataset.side === game.playerColor;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.disabled = busy;
+  });
 }
 
 function selectSquare(square, piece) {
@@ -117,7 +128,7 @@ function selectSquare(square, piece) {
     playMove(`${selected}${square}`);
     return;
   }
-  selected = piece && pieces[piece][1] === "white" && legalDestinations(square).length ? square : null;
+  selected = piece && pieces[piece][1] === game.playerColor && legalDestinations(square).length ? square : null;
   renderBoard();
 }
 
@@ -150,13 +161,16 @@ async function playMove(move) {
   }
 }
 
-async function newGame() {
+async function newGame(playerColor = game?.playerColor ?? "white") {
   busy = true;
   selected = null;
   errorElement.hidden = true;
   if (game) render();
   try {
-    game = await request("/api/new", { method: "POST", body: "{}" });
+    game = await request("/api/new", {
+      method: "POST",
+      body: JSON.stringify({ playerColor, depth: Number(depthElement.value) }),
+    });
   } catch (error) {
     errorElement.textContent = error.message;
     errorElement.hidden = false;
@@ -166,7 +180,10 @@ async function newGame() {
   }
 }
 
-newGameElement.addEventListener("click", newGame);
+newGameElement.addEventListener("click", () => newGame());
+sideElements.forEach((button) => {
+  button.addEventListener("click", () => newGame(button.dataset.side));
+});
 
 try {
   game = await request("/api/state");
