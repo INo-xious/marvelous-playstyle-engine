@@ -39,8 +39,16 @@
         </div>
 
         <div class="match-status">
-          <strong>You vs Marve<span>I</span>ous Engine</strong>
+          <strong id="match-label">You (White) vs Marve<span>I</span>ous Engine</strong>
           <p id="status"><i></i>Your turn</p>
+        </div>
+
+        <div class="side-control" role="group" aria-label="Play as">
+          <span>Play as</span>
+          <div class="side-options">
+            <button type="button" data-side="white" aria-pressed="true">White</button>
+            <button type="button" data-side="black" aria-pressed="false">Black</button>
+          </div>
         </div>
 
         <label class="depth-control" for="depth">
