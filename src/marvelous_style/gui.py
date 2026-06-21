@@ -5,6 +5,7 @@ import json
 import subprocess
 import threading
 import webbrowser
+from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +22,93 @@ STYLE_BOOK_PATH = ROOT / "data" / "processed" / "style_book.tsv"
 
 class MoveChooser(Protocol):
     def choose(self, fen: str, depth: int) -> tuple[str, str]: ...
+
+
+@dataclass(frozen=True)
+class OpeningLine:
+    name: str
+    moves: tuple[str, ...]
+    engine_color: chess.Color
+    black_route: str | None = None
+
+
+OPENING_LINES = (
+    OpeningLine(
+        "Evans Gambit",
+        ("e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "b2b4"),
+        chess.WHITE,
+    ),
+    OpeningLine(
+        "Fried Liver Attack",
+        (
+            "e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "f3g5",
+            "d7d5", "e4d5", "f6d5", "g5f7",
+        ),
+        chess.WHITE,
+    ),
+    OpeningLine(
+        "Sicilian Defense response",
+        ("e2e4", "c7c5", "g1f3", "d7d6", "d2d4", "c5d4", "f3d4"),
+        chess.WHITE,
+    ),
+    OpeningLine(
+        "Englund Gambit",
+        ("d2d4", "e7e5", "d4e5", "b8c6", "g1f3", "d8e7"),
+        chess.BLACK,
+    ),
+    OpeningLine(
+        "Stafford Gambit",
+        ("e2e4", "e7e5", "g1f3", "g8f6", "f3e5", "b8c6", "e5c6", "d7c6"),
+        chess.BLACK,
+        "stafford",
+    ),
+    OpeningLine(
+        "Fishing Pole Trap",
+        (
+            "e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "g8f6", "e1g1",
+            "f6g4", "h2h3", "h7h5", "h3g4", "h5g4",
+        ),
+        chess.BLACK,
+        "fishing_pole",
+    ),
+)
+
+
+def position_key(board: chess.Board) -> str:
+    return " ".join(board.fen().split()[:4])
+
+
+class OpeningBook:
+    def __init__(self, lines: tuple[OpeningLine, ...] = OPENING_LINES) -> None:
+        self._moves: dict[tuple[chess.Color, str, str | None], tuple[str, str]] = {}
+        for line in lines:
+            board = chess.Board()
+            for move_text in line.moves:
+                move = chess.Move.from_uci(move_text)
+                if move not in board.legal_moves:
+                    raise ValueError(f"illegal move {move_text} in {line.name}")
+                if board.turn == line.engine_color:
+                    key = (line.engine_color, position_key(board), line.black_route)
+                    self._moves.setdefault(key, (move_text, line.name))
+                board.push(move)
+
+    def choose(
+        self,
+        board: chess.Board,
+        engine_color: chess.Color,
+        black_route: str,
+    ) -> tuple[str, str] | None:
+        key = position_key(board)
+        route = black_route if engine_color == chess.BLACK else None
+        result = self._moves.get((engine_color, key, route))
+        if result is None:
+            result = self._moves.get((engine_color, key, None))
+        if result is None or chess.Move.from_uci(result[0]) not in board.legal_moves:
+            return None
+        return result
+
+
+DEFAULT_OPENING_BOOK = OpeningBook()
 
 
 class UciEngine:
@@ -93,27 +181,42 @@ class UciEngine:
 
 
 class ChessGame:
-    def __init__(self, engine: MoveChooser) -> None:
+    def __init__(
+        self,
+        engine: MoveChooser,
+        opening_book: OpeningBook | None = DEFAULT_OPENING_BOOK,
+    ) -> None:
         self.engine = engine
+        self.opening_book = opening_book
         self.board = chess.Board()
+        self.player_color = chess.WHITE
         self.history: list[str] = []
         self.last_move: str | None = None
         self.engine_note = "Ready for your first move"
+        self._black_route_index = 0
         self._lock = threading.Lock()
 
-    def reset(self) -> dict[str, Any]:
+    def reset(self, player_color: str = "white", depth: int = 4) -> dict[str, Any]:
         with self._lock:
+            colors = {"white": chess.WHITE, "black": chess.BLACK}
+            if player_color not in colors:
+                raise ValueError("player color must be white or black")
             self.board.reset()
+            self.player_color = colors[player_color]
             self.history.clear()
             self.last_move = None
             self.engine_note = "Ready for your first move"
+            if self.player_color == chess.WHITE:
+                self._black_route_index = (self._black_route_index + 1) % 2
+            else:
+                self._play_engine_move(depth)
             return self._state()
 
     def play(self, move_text: str, depth: int) -> dict[str, Any]:
         with self._lock:
             if self.board.is_game_over():
                 raise ValueError("the game is already over")
-            if self.board.turn != chess.WHITE:
+            if self.board.turn != self.player_color:
                 raise ValueError("wait for the engine to move")
 
             move = self._parse_user_move(move_text)
@@ -122,15 +225,7 @@ class ChessGame:
             self.last_move = move.uci()
 
             if not self.board.is_game_over():
-                engine_move_text, self.engine_note = self.engine.choose(
-                    self.board.fen(), max(1, min(depth, 6))
-                )
-                engine_move = chess.Move.from_uci(engine_move_text)
-                if engine_move not in self.board.legal_moves:
-                    raise RuntimeError(f"engine returned illegal move {engine_move_text}")
-                self.history.append(self.board.san(engine_move))
-                self.board.push(engine_move)
-                self.last_move = engine_move.uci()
+                self._play_engine_move(depth)
 
             return self._state()
 
@@ -152,12 +247,34 @@ class ChessGame:
             candidates[0],
         )
 
+    def _play_engine_move(self, depth: int) -> None:
+        engine_color = not self.player_color
+        black_route = ("stafford", "fishing_pole")[self._black_route_index]
+        book_move = (
+            self.opening_book.choose(self.board, engine_color, black_route)
+            if self.opening_book is not None
+            else None
+        )
+        if book_move:
+            engine_move_text, opening_name = book_move
+            self.engine_note = f"Opening book: {opening_name}"
+        else:
+            engine_move_text, self.engine_note = self.engine.choose(
+                self.board.fen(), max(1, min(depth, 6))
+            )
+        engine_move = chess.Move.from_uci(engine_move_text)
+        if engine_move not in self.board.legal_moves:
+            raise RuntimeError(f"engine returned illegal move {engine_move_text}")
+        self.history.append(self.board.san(engine_move))
+        self.board.push(engine_move)
+        self.last_move = engine_move.uci()
+
     def _state(self) -> dict[str, Any]:
         outcome = self.board.outcome()
         if outcome:
-            if outcome.winner is chess.WHITE:
+            if outcome.winner == self.player_color:
                 status = "Checkmate - you win"
-            elif outcome.winner is chess.BLACK:
+            elif outcome.winner is not None:
                 status = "Checkmate - engine wins"
             else:
                 status = f"Draw - {outcome.termination.name.replace('_', ' ').title()}"
@@ -169,13 +286,14 @@ class ChessGame:
         return {
             "fen": self.board.fen(),
             "legalMoves": [move.uci() for move in self.board.legal_moves]
-            if self.board.turn == chess.WHITE and not outcome
+            if self.board.turn == self.player_color and not outcome
             else [],
             "history": self.history,
             "lastMove": self.last_move,
             "engineNote": self.engine_note,
             "status": status,
             "gameOver": outcome is not None,
+            "playerColor": "white" if self.player_color == chess.WHITE else "black",
         }
 
 
@@ -191,7 +309,12 @@ def make_handler(game: ChessGame) -> type[BaseHTTPRequestHandler]:
             try:
                 payload = self._read_json()
                 if self.path == "/api/new":
-                    self._json(game.reset())
+                    self._json(
+                        game.reset(
+                            str(payload.get("playerColor", "white")),
+                            int(payload.get("depth", 4)),
+                        )
+                    )
                 elif self.path == "/api/move":
                     self._json(
                         game.play(str(payload.get("move", "")), int(payload.get("depth", 4)))
