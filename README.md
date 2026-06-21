@@ -86,10 +86,12 @@ Launch the playable local GUI:
 make gui
 ```
 
-Your browser opens at `http://127.0.0.1:8765`. Click a white piece and then a
-highlighted legal square. The personalized engine replies as Black, while the
-side panel shows move history and whether the reply came from your style book
-or from alpha-beta search. Press `Control-C` in the terminal to stop it.
+Your browser opens at `http://127.0.0.1:8765`. Choose White or Black, then click
+a piece and a highlighted legal square. The board rotates to keep your side at
+the bottom, and the engine makes the first move when you play Black. The engine
+can follow the Evans, Englund, Stafford, Fried Liver, Fishing Pole, and
+anti-Sicilian opening lines before falling back to your style book and
+alpha-beta search. Press `Control-C` in the terminal to stop it.
 
 The interface is local and intended only for offline engine testing.
 
