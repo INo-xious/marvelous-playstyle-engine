@@ -24,7 +24,27 @@ all: $(EXE)
 $(EXE): $(SRCS) $(wildcard src/*.h) $(wildcard $(EVALFILE))
 	$(CXX) $(CXXFLAGS) $(ARCHFLAGS) -flto $(SRCS) -o $@ $(LDFLAGS)
 
-clean:
-	rm -f $(EXE) *.profraw *.profdata
+IS_CLANG := $(shell $(CXX) --version 2>/dev/null | grep -c clang)
+ifneq ($(IS_CLANG),0)
+    PROFDATA ?= $(shell command -v llvm-profdata 2>/dev/null || xcrun -f llvm-profdata 2>/dev/null)
+    PGO_GEN  := -fprofile-instr-generate
+    PGO_USE  := -fprofile-instr-use=$(EXE).profdata
+    PGO_MERGE = $(PROFDATA) merge -output=$(EXE).profdata *.profraw
+else
+    PGO_GEN  := -fprofile-generate
+    PGO_USE  := -fprofile-use -fno-peel-loops -fno-tracer
+    PGO_MERGE = true
+endif
 
-.PHONY: all clean
+pgo: $(SRCS) $(wildcard src/*.h)
+	rm -f *.profraw *.profdata *.gcda
+	$(CXX) $(CXXFLAGS) $(ARCHFLAGS) -flto $(PGO_GEN) $(SRCS) -o $(EXE) $(LDFLAGS)
+	LLVM_PROFILE_FILE=$(EXE)-%p.profraw ./$(EXE) bench > /dev/null
+	$(PGO_MERGE)
+	$(CXX) $(CXXFLAGS) $(ARCHFLAGS) -flto $(PGO_USE) $(SRCS) -o $(EXE) $(LDFLAGS)
+	rm -f *.profraw *.profdata *.gcda
+
+clean:
+	rm -f $(EXE) *.profraw *.profdata *.gcda
+
+.PHONY: all clean pgo
