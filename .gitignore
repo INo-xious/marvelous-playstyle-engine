@@ -1,0 +1,7 @@
+marvelous
+marvelous-*
+*.o
+*.profraw
+*.profdata
+*.dSYM/
+.DS_Store
