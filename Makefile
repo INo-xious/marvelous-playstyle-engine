@@ -1,30 +1,25 @@
-PYTHON ?= python3
-VENV_PYTHON := .venv/bin/python
-VENV_PIP := .venv/bin/pip
+EXE      ?= marvelous
+CXX      ?= clang++
+SRCS     := $(wildcard src/*.cpp)
+UNAME_M  := $(shell uname -m)
 
-.PHONY: setup engine gui test data report clean
+CXXFLAGS := -std=c++20 -O3 -DNDEBUG -Wall -Wextra -pthread
+LDFLAGS  := -pthread
 
-setup:
-	$(PYTHON) -m venv .venv
-	$(VENV_PIP) install -e '.[dev]'
+ifeq ($(UNAME_M),arm64)
+    ARCHFLAGS ?= -mcpu=native
+else ifeq ($(UNAME_M),aarch64)
+    ARCHFLAGS ?= -mcpu=native
+else
+    ARCHFLAGS ?= -march=native
+endif
 
-engine:
-	$(MAKE) -C engine all
+all: $(EXE)
 
-gui: engine
-	$(VENV_PYTHON) -m marvelous_style.gui
-
-test: engine
-	$(VENV_PYTHON) -m pytest -q
-	$(MAKE) -C engine test
-
-data:
-	.venv/bin/marvelous-style all --username MarveIous --root .
-
-report:
-	.venv/bin/marvelous-style report --username MarveIous
-	.venv/bin/marvelous-style evaluate
+$(EXE): $(SRCS) $(wildcard src/*.h)
+	$(CXX) $(CXXFLAGS) $(ARCHFLAGS) -flto $(SRCS) -o $@ $(LDFLAGS)
 
 clean:
-	$(MAKE) -C engine clean
-	rm -rf .pytest_cache src/*.egg-info src/*/__pycache__ tests/__pycache__
+	rm -f $(EXE) *.profraw *.profdata
+
+.PHONY: all clean

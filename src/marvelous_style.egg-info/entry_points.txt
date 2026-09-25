@@ -1,3 +1,0 @@
-[console_scripts]
-marvelous-gui = marvelous_style.gui:main
-marvelous-style = marvelous_style.cli:main
