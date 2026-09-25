@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
+
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 
 using u8 = uint8_t;
 using u16 = uint16_t;
@@ -14,6 +19,22 @@ using i32 = int32_t;
 using i64 = int64_t;
 
 using Bitboard = u64;
+
+inline void* aligned_malloc(size_t align, size_t size) {
+#if defined(_WIN32)
+    return _aligned_malloc(size, align);
+#else
+    return std::aligned_alloc(align, (size + align - 1) / align * align);
+#endif
+}
+
+inline void aligned_free(void* p) {
+#if defined(_WIN32)
+    _aligned_free(p);
+#else
+    std::free(p);
+#endif
+}
 using Key = u64;
 
 constexpr int MAX_PLY = 246;

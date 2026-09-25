@@ -26,6 +26,16 @@ asm(".section __DATA,__const\n"
     "_marvelousNetEnd:\n"
     ".byte 0\n"
     ".text\n");
+#elif defined(_WIN32)
+asm(".section .rdata,\"dr\"\n"
+    ".globl marvelousNetData\n"
+    ".p2align 6\n"
+    "marvelousNetData:\n"
+    ".incbin \"" EVALFILE "\"\n"
+    ".globl marvelousNetEnd\n"
+    "marvelousNetEnd:\n"
+    ".byte 0\n"
+    ".text\n");
 #else
 asm(".section .rodata\n"
     ".globl marvelousNetData\n"
@@ -150,15 +160,15 @@ bool load(const std::string& path) {
     if (!in) return false;
     const size_t n = size_t(in.tellg());
     if (!valid_size(n)) return false;
-    Network* buf = static_cast<Network*>(std::aligned_alloc(64, ((sizeof(Network) + 63) / 64) * 64));
+    Network* buf = static_cast<Network*>(aligned_malloc(64, sizeof(Network)));
     if (!buf) return false;
     in.seekg(0);
     in.read(reinterpret_cast<char*>(buf), sizeof(Network));
     if (!in) {
-        std::free(buf);
+        aligned_free(buf);
         return false;
     }
-    std::free(loaded);
+    aligned_free(loaded);
     loaded = buf;
     net = loaded;
     netSource = path;
@@ -168,8 +178,8 @@ bool load(const std::string& path) {
 std::string source() { return netSource; }
 
 Evaluator::Evaluator() {
-    stack = static_cast<Accumulator*>(std::aligned_alloc(64, sizeof(Accumulator) * (MAX_PLY + 16)));
-    finny = static_cast<FinnyEntry(*)[INPUT_BUCKETS * 2]>(std::aligned_alloc(64, sizeof(FinnyEntry) * 2 * INPUT_BUCKETS * 2));
+    stack = static_cast<Accumulator*>(aligned_malloc(64, sizeof(Accumulator) * (MAX_PLY + 16)));
+    finny = static_cast<FinnyEntry(*)[INPUT_BUCKETS * 2]>(aligned_malloc(64, sizeof(FinnyEntry) * 2 * INPUT_BUCKETS * 2));
     for (int p = 0; p < 2; ++p)
         for (int b = 0; b < INPUT_BUCKETS * 2; ++b) {
             FinnyEntry& e = finny[p][b];
@@ -180,8 +190,8 @@ Evaluator::Evaluator() {
 }
 
 Evaluator::~Evaluator() {
-    std::free(stack);
-    std::free(finny);
+    aligned_free(stack);
+    aligned_free(finny);
 }
 
 void Evaluator::refresh(const Position& pos, Color persp, Accumulator& acc) {

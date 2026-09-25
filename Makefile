@@ -6,6 +6,11 @@ UNAME_M  := $(shell uname -m)
 CXXFLAGS := -std=c++20 -O3 -DNDEBUG -Wall -Wextra -pthread
 LDFLAGS  := -pthread
 
+ifeq ($(OS),Windows_NT)
+    EXE := $(EXE).exe
+    LDFLAGS += -static -Wl,--stack,16777216
+endif
+
 ifeq ($(UNAME_M),arm64)
     ARCHFLAGS ?= -mcpu=native
 else ifeq ($(UNAME_M),aarch64)

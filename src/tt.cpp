@@ -1,5 +1,6 @@
 #include "tt.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <thread>
@@ -7,12 +8,12 @@
 
 TranspositionTable TT;
 
-TranspositionTable::~TranspositionTable() { std::free(table); }
+TranspositionTable::~TranspositionTable() { aligned_free(table); }
 
 void TranspositionTable::resize(size_t mb, int threads) {
-    std::free(table);
+    aligned_free(table);
     clusterCount = mb * 1024 * 1024 / sizeof(TTCluster);
-    table = static_cast<TTCluster*>(std::aligned_alloc(64, ((clusterCount * sizeof(TTCluster) + 63) / 64) * 64));
+    table = static_cast<TTCluster*>(aligned_malloc(64, clusterCount * sizeof(TTCluster)));
     if (!table) {
         std::fprintf(stderr, "failed to allocate %zu MB for hash\n", mb);
         std::exit(1);
