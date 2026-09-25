@@ -7,7 +7,12 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <functional>
 #include <thread>
+
+#if !defined(_WIN32)
+#include <pthread.h>
+#endif
 
 #include "history.h"
 #include "movegen.h"
@@ -100,6 +105,7 @@ public:
         rootDepth = completedDepth = selDepth = pvIdx = nmpMinPly = 0;
         bestMoveChanges = 0;
         stability = 0;
+        callsCnt = 0;
         scoreEma = VALUE_NONE;
         hist->new_search();
         nnue.reset(pos);
@@ -178,8 +184,59 @@ private:
     Value scoreEma = VALUE_NONE;
 };
 
+#if defined(_WIN32)
+// the stack size comes from the linker (-Wl,--stack)
+using SearchThread = std::thread;
+#else
+// search recursion needs far more than the 512 KB default secondary thread stack on macOS
+class SearchThread {
+public:
+    SearchThread() = default;
+    template<typename F>
+    explicit SearchThread(F&& f) {
+        auto* fn = new std::function<void()>(std::forward<F>(f));
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, size_t(16) << 20);
+        if (pthread_create(&handle, &attr, &run, fn) == 0) live = true;
+        else {
+            delete fn;
+            std::fprintf(stderr, "failed to start search thread\n");
+            std::abort();
+        }
+        pthread_attr_destroy(&attr);
+    }
+    SearchThread(SearchThread&& o) noexcept : handle(o.handle), live(o.live) { o.live = false; }
+    SearchThread& operator=(SearchThread&& o) noexcept {
+        if (live) join();
+        handle = o.handle;
+        live = o.live;
+        o.live = false;
+        return *this;
+    }
+    ~SearchThread() {
+        if (live) join();
+    }
+    bool joinable() const { return live; }
+    void join() {
+        pthread_join(handle, nullptr);
+        live = false;
+    }
+
+private:
+    static void* run(void* p) {
+        auto* fn = static_cast<std::function<void()>*>(p);
+        (*fn)();
+        delete fn;
+        return nullptr;
+    }
+    pthread_t handle{};
+    bool live = false;
+};
+#endif
+
 std::vector<std::unique_ptr<Worker>> workers;
-std::thread mainThread;
+SearchThread mainThread;
 
 u64 total_nodes() {
     u64 n = 0;
@@ -273,11 +330,11 @@ void Worker::check_time() {
     if (id != 0 || --callsCnt > 0) return;
     callsCnt = limits.nodes ? int(std::min<u64>(1024, limits.nodes / 1024 + 1)) : 1024;
     if (completedDepth < 1) return;
+    if (pondering.load(std::memory_order_relaxed)) return;
     if (limits.nodes && total_nodes() >= limits.nodes) {
         stopFlag = true;
         return;
     }
-    if (pondering.load(std::memory_order_relaxed)) return;
     if (tc.useHard && now() - tc.start.load(std::memory_order_relaxed) >= tc.hard) stopFlag = true;
 }
 
@@ -503,8 +560,10 @@ Value Worker::search(Stack* ss, Value alpha, Value beta, int depth, bool cutNode
 
             // razoring
             if (depth <= 4 && std::abs(alpha) < 2000 && eval + 300 * depth <= alpha) {
+                const Bitboard threats = ss->threats;
                 const Value v = qsearch<NonPV>(ss, alpha, alpha + 1);
                 if (v <= alpha) return v;
+                ss->threats = threats;
             }
 
             // null move pruning
@@ -565,7 +624,7 @@ Value Worker::search(Stack* ss, Value alpha, Value beta, int depth, bool cutNode
     // small probcut from the transposition table
     {
         const Value pcBeta = beta + 350;
-        if (!excluded && ttValue != VALUE_NONE && (tte.bound & BOUND_LOWER) && tte.depth >= depth - 4 && ttValue >= pcBeta
+        if (!RootNode && !excluded && ttValue != VALUE_NONE && (tte.bound & BOUND_LOWER) && tte.depth >= depth - 4 && ttValue >= pcBeta
             && !is_decisive(beta) && !is_decisive(ttValue))
             return pcBeta;
     }
@@ -894,6 +953,7 @@ void Worker::iterative_deepening() {
         if (!limits.silent) print_info(rootDepth);
 
         if (stopFlag.load(std::memory_order_relaxed)) break;
+        if (pondering.load()) continue;
 
         const Value best = rootMoves[0].score;
         if (limits.mate && is_decisive(best) && VALUE_MATE - std::abs(best) <= 2 * limits.mate) stopFlag = true;
@@ -955,7 +1015,7 @@ Move ponder_from_tt(Position& pos, Move best) {
 void main_search() {
     Worker* main = workers[0].get();
 
-    std::vector<std::thread> helpers;
+    std::vector<SearchThread> helpers;
     for (size_t i = 1; i < workers.size(); ++i) helpers.emplace_back([i]() { workers[i]->iterative_deepening(); });
     main->iterative_deepening();
 
@@ -991,7 +1051,7 @@ void init_time(const Position& pos, size_t legalMoves) {
     if (limits.movetime) {
         tc.useHard = true;
         tc.hard = std::max<i64>(1, limits.movetime - overhead);
-    } else if (limits.time[us]) {
+    } else if (limits.hasTime[us]) {
         const i64 limit = std::max<i64>(1, limits.time[us] - overhead);
         const int mtg = limits.movestogo ? std::min(limits.movestogo, 50) : 20;
         const double base = double(limit) / mtg + 0.9 * double(limits.inc[us]);
@@ -1047,10 +1107,15 @@ void Search::start(const Position& pos, const Limits& lim) {
 
     if (moves.empty()) {
         lastResult = Result{};
-        if (!limits.silent) {
-            std::printf("info depth 0 score %s\nbestmove 0000\n", pos.in_check() ? "mate 0" : "cp 0");
-            std::fflush(stdout);
-        }
+        const bool inCheck = pos.in_check();
+        mainThread = SearchThread([inCheck]() {
+            while (!stopFlag.load() && (pondering.load() || limits.infinite))
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (!limits.silent) {
+                std::printf("info depth 0 score %s\nbestmove 0000\n", inCheck ? "mate 0" : "cp 0");
+                std::fflush(stdout);
+            }
+        });
         return;
     }
 
@@ -1058,7 +1123,7 @@ void Search::start(const Position& pos, const Limits& lim) {
     TT.new_search();
     for (auto& w : workers) w->prepare(pos, moves);
 
-    mainThread = std::thread(main_search);
+    mainThread = SearchThread(main_search);
 }
 
 void Search::stop() {
