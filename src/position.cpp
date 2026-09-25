@@ -11,6 +11,7 @@ Key psq[PIECE_NB][SQUARE_NB];
 Key castling[16];
 Key enpassant[8];
 Key side;
+Key rule50[16];
 } // namespace Zobrist
 
 namespace {
@@ -63,6 +64,7 @@ void Zobrist::init() {
     castling[0] = 0;
     for (auto& k : enpassant) k = rnd();
     side = rnd();
+    for (auto& k : rule50) k = rnd();
 
     for (int& m : CastleMask) m = ALL_CASTLING;
     CastleMask[E1] &= ~(WHITE_OO | WHITE_OOO);

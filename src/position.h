@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,10 @@ extern Key psq[PIECE_NB][SQUARE_NB];
 extern Key castling[16];
 extern Key enpassant[8];
 extern Key side;
+extern Key rule50[16];
 void init();
+
+inline Key rule50_key(int r50) { return r50 < 14 ? 0 : rule50[std::min((r50 - 14) / 8, 15)]; }
 } // namespace Zobrist
 
 struct DirtyPieces {
