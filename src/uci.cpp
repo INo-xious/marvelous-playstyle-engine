@@ -122,8 +122,8 @@ void go(Position& pos, std::istringstream& is) {
         } else {
             std::string val;
             if (!(is >> val) || !parse_int(val, v)) continue;
-            if (tok == "wtime") limits.time[WHITE] = v;
-            else if (tok == "btime") limits.time[BLACK] = v;
+            if (tok == "wtime") limits.time[WHITE] = v, limits.hasTime[WHITE] = true;
+            else if (tok == "btime") limits.time[BLACK] = v, limits.hasTime[BLACK] = true;
             else if (tok == "winc") limits.inc[WHITE] = v;
             else if (tok == "binc") limits.inc[BLACK] = v;
             else if (tok == "movestogo") limits.movestogo = int(v);

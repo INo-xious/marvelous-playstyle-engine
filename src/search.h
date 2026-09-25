@@ -13,6 +13,7 @@ inline i64 now() {
 
 struct Limits {
     i64 time[COLOR_NB] = {0, 0};
+    bool hasTime[COLOR_NB] = {false, false};
     i64 inc[COLOR_NB] = {0, 0};
     i64 movetime = 0;
     i64 start = 0;
@@ -28,7 +29,7 @@ struct Limits {
     bool silent = false;
     std::vector<Move> searchmoves;
 
-    bool use_time() const { return time[WHITE] || time[BLACK] || movetime; }
+    bool use_time() const { return hasTime[WHITE] || hasTime[BLACK] || movetime; }
 };
 
 struct Result {
