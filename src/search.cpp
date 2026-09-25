@@ -9,10 +9,10 @@
 #include <string>
 #include <thread>
 
-#include "eval.h"
 #include "history.h"
 #include "movegen.h"
 #include "movepick.h"
+#include "nnue.h"
 #include "tt.h"
 
 namespace Search {
@@ -109,7 +109,7 @@ public:
 
     int id;
     Position pos;
-    Eval::Evaluator nnue;
+    NNUE::Evaluator nnue;
     std::unique_ptr<Histories> hist;
     std::vector<RootMove> rootMoves;
     std::atomic<u64> nodes{0};

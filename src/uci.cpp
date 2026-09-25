@@ -7,8 +7,8 @@
 #include <string>
 
 #include "bench.h"
-#include "eval.h"
 #include "movegen.h"
+#include "nnue.h"
 #include "search.h"
 #include "tt.h"
 
@@ -44,6 +44,7 @@ void print_options() {
     std::printf("option name MultiPV type spin default 1 min 1 max 218\n");
     std::printf("option name Ponder type check default false\n");
     std::printf("option name UCI_ShowWDL type check default false\n");
+    std::printf("option name EvalFile type string default <embedded>\n");
     std::printf("option name Clear Hash type button\n");
 }
 
@@ -67,6 +68,11 @@ void set_option(std::istringstream& is) {
         options.multiPV = int(std::clamp(v, 1LL, 218LL));
     } else if (n == "uci_showwdl") {
         Search::showWDL = lower(value) == "true";
+    } else if (n == "evalfile") {
+        if (!value.empty() && value != "<embedded>") {
+            if (NNUE::load(value)) std::printf("info string loaded network %s\n", value.c_str());
+            else std::printf("info string failed to load network %s\n", value.c_str());
+        }
     } else if (n == "clear hash") {
         TT.clear(options.threads);
     }
@@ -187,7 +193,7 @@ void UCI::loop(int argc, char** argv) {
         } else if (tok == "d") {
             std::printf("%s\n", pos.fen().c_str());
         } else if (tok == "eval") {
-            std::printf("eval %d (side to move)\n", Eval::evaluate_fresh(pos));
+            std::printf("eval %d (side to move, net %s)\n", NNUE::evaluate_fresh(pos), NNUE::source().c_str());
         }
         std::fflush(stdout);
     }

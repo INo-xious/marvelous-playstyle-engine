@@ -14,9 +14,14 @@ else
     ARCHFLAGS ?= -march=native
 endif
 
+EVALFILE ?= net/marvelous.nnue
+ifneq ($(wildcard $(EVALFILE)),)
+    CXXFLAGS += -DEVALFILE=\"$(EVALFILE)\"
+endif
+
 all: $(EXE)
 
-$(EXE): $(SRCS) $(wildcard src/*.h)
+$(EXE): $(SRCS) $(wildcard src/*.h) $(wildcard $(EVALFILE))
 	$(CXX) $(CXXFLAGS) $(ARCHFLAGS) -flto $(SRCS) -o $@ $(LDFLAGS)
 
 clean:
