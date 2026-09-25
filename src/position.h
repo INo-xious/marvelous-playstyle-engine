@@ -124,6 +124,7 @@ private:
     void remove_piece(Square s);
     void move_piece(Square from, Square to);
     void update_pins(StateInfo& st) const;
+    bool ep_capture_exists(Square epSq) const;
     void compute_keys(StateInfo& st) const;
 
     Piece board[SQUARE_NB];

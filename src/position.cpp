@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <sstream>
+#include <string_view>
 
 #include "movegen.h"
 
@@ -167,10 +168,10 @@ bool Position::set(const std::string& fen) {
         } else if (c >= '1' && c <= '8') {
             f += c - '0';
         } else {
-            const char* pcs = "PNBRQKpnbrqk";
-            const char* at = std::strchr(pcs, c);
-            if (!at || f > 7 || r < 0) return false;
-            put_piece(Piece(at - pcs), make_square(f, r));
+            const std::string_view pcs = "PNBRQKpnbrqk";
+            const size_t idx = pcs.find(c);
+            if (idx == std::string_view::npos || f > 7 || r < 0) return false;
+            put_piece(Piece(idx), make_square(f, r));
             ++f;
         }
     }
@@ -193,10 +194,13 @@ bool Position::set(const std::string& fen) {
     }
 
     st.ep = NO_SQ;
-    if (ep.size() == 2 && ep[0] >= 'a' && ep[0] <= 'h' && (ep[1] == '3' || ep[1] == '6')) {
+    if (ep.size() == 2 && ep[0] >= 'a' && ep[0] <= 'h' && ep[1] == (stm == WHITE ? '6' : '3')) {
         Square s = make_square(ep[0] - 'a', ep[1] - '1');
-        if ((PawnAttacks[~stm][s] & pieces(stm, PAWN)) && (pieces(~stm, PAWN) & square_bb(s - pawn_push(stm))))
+        if ((PawnAttacks[~stm][s] & pieces(stm, PAWN)) && (pieces(~stm, PAWN) & square_bb(s - pawn_push(stm)))
+            && !(pieces() & (square_bb(s) | square_bb(s + pawn_push(stm))))) {
             st.ep = s;
+            if (!ep_capture_exists(s)) st.ep = NO_SQ;
+        }
     }
 
     st.rule50 = std::max(0, r50);
@@ -467,10 +471,7 @@ void Position::make(Move m) {
             st.rule50 = 0;
             if ((int(to) ^ int(from)) == 16) {
                 Square epSq = from + pawn_push(us);
-                if (PawnAttacks[us][epSq] & pieces(them, PAWN)) {
-                    st.ep = epSq;
-                    key ^= Zobrist::enpassant[file_of(epSq)];
-                }
+                if (PawnAttacks[us][epSq] & pieces(them, PAWN)) st.ep = epSq;
             } else if (m.type() == PROMOTION) {
                 Piece promo = make_piece(us, m.promotion());
                 remove_piece(to);
@@ -491,10 +492,20 @@ void Position::make(Move m) {
         st.castling = newCastling;
     }
 
-    st.key = key;
     stm = them;
+    if (st.ep != NO_SQ) {
+        if (ep_capture_exists(st.ep)) key ^= Zobrist::enpassant[file_of(st.ep)];
+        else st.ep = NO_SQ;
+    }
+    st.key = key;
     st.checkers = attackers_to(king_sq(them)) & pieces(us);
     update_pins(st);
+}
+
+bool Position::ep_capture_exists(Square epSq) const {
+    for (Bitboard b = PawnAttacks[~stm][epSq] & pieces(stm, PAWN); b;)
+        if (legal(Move::make<EN_PASSANT>(pop_lsb(b), epSq))) return true;
+    return false;
 }
 
 void Position::unmake(Move m) {
