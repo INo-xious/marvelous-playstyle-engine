@@ -177,6 +177,8 @@ bool load(const std::string& path) {
 
 std::string source() { return netSource; }
 
+bool active() { return net != nullptr; }
+
 Evaluator::Evaluator() {
     stack = static_cast<Accumulator*>(aligned_malloc(64, sizeof(Accumulator) * (MAX_PLY + 16)));
     finny = static_cast<FinnyEntry(*)[INPUT_BUCKETS * 2]>(aligned_malloc(64, sizeof(FinnyEntry) * 2 * INPUT_BUCKETS * 2));

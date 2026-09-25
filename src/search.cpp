@@ -79,8 +79,11 @@ std::atomic<bool> pondering{false};
 Limits limits;
 TimeControl tc;
 Result lastResult;
+Value previousScore = VALUE_NONE;
 
-int normalize(Value v) { return v; }
+int pawn_units() { return NNUE::active() ? NNUE::PAWN_UNITS : 100; }
+
+int normalize(Value v) { return v * 100 / pawn_units(); }
 
 std::string score_to_uci(Value v) {
     if (is_decisive(v) && std::abs(v) >= VALUE_MATE_IN_MAX_PLY)
@@ -106,7 +109,8 @@ public:
         bestMoveChanges = 0;
         stability = 0;
         callsCnt = 0;
-        scoreEma = VALUE_NONE;
+        iterScore = VALUE_NONE;
+        lastBest = Move::none();
         hist->new_search();
         nnue.reset(pos);
     }
@@ -181,7 +185,7 @@ private:
     int callsCnt = 0;
     int stability = 0;
     Move lastBest = Move::none();
-    Value scoreEma = VALUE_NONE;
+    Value iterScore = VALUE_NONE;
 };
 
 #if defined(_WIN32)
@@ -859,30 +863,25 @@ void Worker::print_info(int depth) const {
 bool Worker::soft_stop(i64 elapsed) {
     if (!tc.useSoft) return false;
     const RootMove& best = rootMoves[0];
-    stability = best.move == lastBest ? stability + 1 : 1;
+    stability = best.move == lastBest ? std::min(stability + 1, 8) : 0;
     lastBest = best.move;
 
     const u64 total = std::max<u64>(1, nodes.load(std::memory_order_relaxed));
     const double frac = double(best.nodes) / double(total);
-    double scale = std::max(2.59 - 1.6 * frac, 0.188);
-    if (completedDepth >= 6) scale *= std::min(2.36, 0.78 + 8.59 * std::pow(stability + 0.9, -2.57));
+    double scale = (1.53 - frac) * 1.74;
+    scale *= 1.71 - 0.08 * stability;
 
     const Value score = best.score;
-    if (!is_decisive(score)) {
-        if (scoreEma != VALUE_NONE) {
-            const double c = (score - scoreEma) / 5.0;
-            const double inv = c * 0.36 / (std::abs(c) + 0.94) * (c > 0 ? 0.94 : 1.10);
-            scale *= std::clamp(1.0 - inv, 0.63, 2.48);
-            scoreEma += (score - scoreEma) / 8;
-        } else
-            scoreEma = score;
-    } else if (is_win(score))
-        scale = 0.15;
-    else
-        scale = 0.5;
+    if (is_decisive(score)) scale = is_win(score) ? 0.2 : 0.5;
+    else if (iterScore != VALUE_NONE) {
+        const double unit = pawn_units() / 100.0;
+        const double iterDrop = (iterScore - score) / unit;
+        const double searchDrop = previousScore != VALUE_NONE && !is_decisive(previousScore) ? (previousScore - score) / unit : 0.0;
+        scale *= std::clamp(0.86 + 0.010 * iterDrop + 0.025 * searchDrop, 0.81, 1.50);
+    }
+    iterScore = score;
 
-    scale = std::max(scale, 0.09);
-    return elapsed >= i64(double(tc.soft) * scale);
+    return elapsed >= i64(double(tc.soft) * std::max(scale, 0.1));
 }
 
 void Worker::iterative_deepening() {
@@ -1035,6 +1034,7 @@ void main_search() {
     lastResult.score = rm.score == -VALUE_INFINITE ? rm.prevScore : rm.score;
     lastResult.depth = best->completedDepth;
     lastResult.nodes = total_nodes();
+    previousScore = lastResult.score;
 
     if (!limits.silent) {
         if (ponder) std::printf("bestmove %s ponder %s\n", move_to_uci(rm.move).c_str(), move_to_uci(ponder).c_str());
@@ -1088,6 +1088,7 @@ void Search::set_threads(int n) {
 void Search::new_game() {
     wait();
     for (auto& w : workers) w->hist->clear();
+    previousScore = VALUE_NONE;
 }
 
 void Search::start(const Position& pos, const Limits& lim) {

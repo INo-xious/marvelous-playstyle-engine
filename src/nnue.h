@@ -12,6 +12,8 @@ constexpr int OUTPUT_BUCKETS = 8;
 constexpr int QA = 255;
 constexpr int QB = 64;
 constexpr int SCALE = 400;
+// internal eval units per pawn (100 cp), from a win-rate fit of the embedded net
+constexpr int PAWN_UNITS = 100;
 
 // king buckets over the half board (files a-d), rank 1 first
 constexpr int BucketLayout[32] = {
@@ -34,6 +36,7 @@ struct alignas(64) Network {
 };
 
 bool init();
+bool active();
 bool load(const std::string& path);
 std::string source();
 
